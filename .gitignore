@@ -1,0 +1,15 @@
+# Ignore frontend dependencies
+**/node_modules/
+
+# Ignore backend virtual environment
+**/venv/
+**/.venv/
+**/env/
+
+# Ignore Next.js/Build outputs
+**/.next/
+**/build/
+**/dist/
+
+# Ignore environment variables
+.env*
