@@ -7,7 +7,7 @@ const menuItems = [
   { label: "Create Request", path: "/dashboard/create-request" },
   { label: "My Requests", path: "/dashboard/my-requests" },
   { label: "Approve Request", path: "/dashboard/approve" },
-  { label: "SAP Validation", path: "/dashboard/sap-validation" },
+  { label: "Validation", path: "/dashboard/validation" },
   { label: "Reporting", path: "/dashboard/reporting" },
 ];
 
