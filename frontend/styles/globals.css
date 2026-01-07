@@ -79,3 +79,40 @@ select {
   padding: 8px;
   margin-top: 8px;
 }
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  max-width: 1000px;
+}
+
+.form-grid .full {
+  grid-column: span 2;
+}
+
+.form-grid input,
+.form-grid textarea {
+  width: 100%;
+  padding: 8px;
+}
+
+.file-list {
+  margin-top: 8px;
+  list-style: none;
+  padding: 0;
+}
+
+.file-list li {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.file-list button {
+  background: none;
+  color: red;
+  border: none;
+  cursor: pointer;
+}
+

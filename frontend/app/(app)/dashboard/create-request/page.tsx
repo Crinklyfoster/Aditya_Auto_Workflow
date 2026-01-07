@@ -1,17 +1,92 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+
+type FunctionOption = {
+  key: string;
+  label: string;
+  route: string;
+};
+
+const FUNCTION_OPTIONS: FunctionOption[] = [
+  {
+    key: "asset-creation",
+    label: "Asset Creation",
+    route: "/dashboard/asset/creation",
+  },
+  {
+    key: "customer-master",
+    label: "Customer Master Creation/Modification",
+    route: "/dashboard/customer/master",
+  },
+  {
+    key: "engineering-bom-note",
+    label: "Engineering BOM Note",
+    route: "/dashboard/engineering/bom-note",
+  },
+  {
+    key: "engineering-bom-note-change",
+    label: "Engineering BOM Note Change",
+    route: "/dashboard/engineering/bom-note-change",
+  },
+  {
+    key: "hiring-indent",
+    label: "Hiring Indent",
+    route: "/dashboard/hiring-indent",
+  },
+  {
+    key: "npv-submission",
+    label: "NPV Submission",
+    route: "/dashboard/npv",
+  },
+  {
+    key: "part-code-creation",
+    label: "Part Code Creation",
+    route: "/dashboard/part-code/creation",
+  },
+  {
+    key: "part-code-modification",
+    label: "Part Code Modification",
+    route: "/dashboard/part-code/modification",
+  },
+  {
+    key: "project-approval",
+    label: "Project Approval",
+    route: "/dashboard/project/approval",
+  },
+  {
+    key: "routing-master",
+    label: "Routing Master Creation/Modification",
+    route: "/dashboard/routing-master",
+  },
+  {
+    key: "selling-price-updation",
+    label: "Selling Price Updation",
+    route: "/dashboard/selling-price",
+  },
+  {
+    key: "vendor-master",
+    label: "Vendor Master Creation/Modification",
+    route: "/dashboard/vendor/master",
+  },
+];
 
 export default function CreateRequestPage() {
-  const [functionType, setFunctionType] = useState("");
+  const router = useRouter();
+  const [selectedKey, setSelectedKey] = useState("");
 
   function handleLaunch() {
-    if (!functionType) {
+    const selected = FUNCTION_OPTIONS.find(
+      (opt) => opt.key === selectedKey
+    );
+
+    if (!selected) {
       alert("Please select a function");
       return;
     }
 
-    alert(`Demo launch for: ${functionType}`);
+    router.push(selected.route);
   }
 
   return (
@@ -19,26 +94,20 @@ export default function CreateRequestPage() {
       <h1>Create Request</h1>
 
       <label>Select Function</label>
+      <br />
+
       <select
-        value={functionType}
-        onChange={(e) => setFunctionType(e.target.value)}
+        value={selectedKey}
+        onChange={(e) => setSelectedKey(e.target.value)}
       >
         <option value="">-- Select --</option>
-        <option value="Asset Creation">Asset Creation</option>
-        <option value="Customer Master Creation/Modification">Customer Master Creation/Modification</option>
-        <option value="Engineering BOM Note">Engineering BOM Note</option>
-        <option value="Engineering BOM Note Change">Engineering BOM Note Change</option>
-        <option value="Hiring Indent">Hiring Indent</option>
-        <option value="NPV Submission">NPV Submission</option>          
-        <option value="Part Code Creation">Part Code Creation</option>
-        <option value="Part Code Modification">Part Code Modification</option>
-        <option value="Project Approval">Project Approval</option>
-        <option value="Routing Master Creation/Modification">Routing Master Creation/Modification</option>
-        <option value="Selling Price Updation">Selling Price Updation</option>
-        <option value="Vendor Master Creation/Modification">Vendor Master Creation/Modification</option>       
-       
+        {FUNCTION_OPTIONS.map((opt) => (
+          <option key={opt.key} value={opt.key}>
+            {opt.label}
+          </option>
+        ))}
       </select>
-      
+
       <br />
       <br />
 
