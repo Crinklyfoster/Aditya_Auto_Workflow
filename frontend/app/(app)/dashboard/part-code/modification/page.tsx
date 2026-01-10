@@ -4,17 +4,12 @@ import { useState } from "react";
 
 /* ========= SAP-ALIGNED DROPDOWN DATA ========= */
 
-// Shared plant list (used in 3 places)
 const PLANTS = [
   "BP01", "BP02", "BP03", "BP04", "BP05", "BP06", "BP07",
   "BP08", "BP09", "BP10", "BP11", "BP12", "BP13", "BP14",
-  "AM01",
-  "AV01",
-  "EA01",
-  "SY01",
+  "AM01", "AV01", "EA01", "SY01",
 ];
 
-// Sales Views
 const SALES_VIEWS = [
   { value: "DOM", label: "Domestic Sales" },
   { value: "EXP", label: "Export" },
@@ -22,25 +17,19 @@ const SALES_VIEWS = [
   { value: "STO", label: "Stock Transfer" },
 ];
 
-// Tax Indication of the Material
 const TAX_INDICATIONS = [
   { value: "0", label: "0 - Taxable Under GST" },
   { value: "1", label: "1 - GST - Exempted" },
 ];
 
-// Procurement Type
 const PROCUREMENT_TYPES = [
   { value: "E", label: "E - In-house Production" },
   { value: "F", label: "F - External Procurement" },
   { value: "F-30", label: "F-30 - Special Procurement" },
 ];
 
-// Production Version Update
-const PRODUCTION_VERSION_OPTIONS = [
-  { value: "REM", label: "REM" },
-];
+const PRODUCTION_VERSION_OPTIONS = [{ value: "REM", label: "REM" }];
 
-// Quality Management
 const QUALITY_MANAGEMENT_OPTIONS = [
   { value: "PUR", label: "Purchasing" },
   { value: "PROD", label: "Production" },
@@ -50,6 +39,8 @@ const QUALITY_MANAGEMENT_OPTIONS = [
 
 export default function PartCodeModificationPage() {
   const [files, setFiles] = useState<File[]>([]);
+  const [loading, setLoading] = useState(false);
+
   const [form, setForm] = useState({
     plant: "",
     sapPartCode: "",
@@ -81,22 +72,32 @@ export default function PartCodeModificationPage() {
     setFiles((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function handleSubmit() {
-    console.log("PART CODE MODIFICATION (DEMO)");
-    console.log("FORM DATA:", form);
-    console.log(
-      "ATTACHMENTS:",
-      files.map((f) => ({
-        name: f.name,
-        size: f.size,
-        type: f.type,
-      }))
+  /* ✅ REAL SUBMIT → BACKEND */
+  async function handleSubmit() {
+    if (!form.plant || !form.sapPartCode || !form.newDescription) {
+      alert("Please fill mandatory fields");
+      return;
+    }
+
+    setLoading(true);
+
+    const res = await fetch(
+      "http://127.0.0.1:8000/api/part-code/submit-demo/",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      }
     );
 
-    alert(
-      "Demo submission successful.\n\n" +
-      "No backend, SAP, or SharePoint integration yet."
-    );
+    setLoading(false);
+
+    if (!res.ok) {
+      alert("Submission failed");
+      return;
+    }
+
+    alert("Request saved to database (demo)");
   }
 
   return (
@@ -170,9 +171,7 @@ export default function PartCodeModificationPage() {
           >
             <option value="">-- Select --</option>
             {SALES_VIEWS.map((v) => (
-              <option key={v.value} value={v.value}>
-                {v.label}
-              </option>
+              <option key={v.value} value={v.value}>{v.label}</option>
             ))}
           </select>
         </div>
@@ -214,9 +213,7 @@ export default function PartCodeModificationPage() {
           >
             <option value="">-- Select --</option>
             {TAX_INDICATIONS.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
-              </option>
+              <option key={t.value} value={t.value}>{t.label}</option>
             ))}
           </select>
         </div>
@@ -230,9 +227,7 @@ export default function PartCodeModificationPage() {
           >
             <option value="">-- Select --</option>
             {PROCUREMENT_TYPES.map((p) => (
-              <option key={p.value} value={p.value}>
-                {p.label}
-              </option>
+              <option key={p.value} value={p.value}>{p.label}</option>
             ))}
           </select>
         </div>
@@ -255,9 +250,7 @@ export default function PartCodeModificationPage() {
           >
             <option value="">-- Select --</option>
             {PRODUCTION_VERSION_OPTIONS.map((p) => (
-              <option key={p.value} value={p.value}>
-                {p.label}
-              </option>
+              <option key={p.value} value={p.value}>{p.label}</option>
             ))}
           </select>
         </div>
@@ -271,9 +264,7 @@ export default function PartCodeModificationPage() {
           >
             <option value="">-- Select --</option>
             {QUALITY_MANAGEMENT_OPTIONS.map((q) => (
-              <option key={q.value} value={q.value}>
-                {q.label}
-              </option>
+              <option key={q.value} value={q.value}>{q.label}</option>
             ))}
           </select>
         </div>
@@ -292,23 +283,12 @@ export default function PartCodeModificationPage() {
         <div className="full">
           <label>Attachments</label>
           <input type="file" multiple onChange={handleFileChange} />
-
-          {files.length > 0 && (
-            <ul className="file-list">
-              {files.map((file, i) => (
-                <li key={i}>
-                  {file.name} ({Math.round(file.size / 1024)} KB)
-                  <button type="button" onClick={() => removeFile(i)}>
-                    Remove
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
         </div>
       </div>
 
-      <button onClick={handleSubmit}>Submit</button>
+      <button onClick={handleSubmit} disabled={loading}>
+        {loading ? "Submitting..." : "Submit"}
+      </button>
     </>
   );
 }
