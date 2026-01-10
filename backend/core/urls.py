@@ -5,6 +5,8 @@ from .views import (
     my_requests,
     approve_requests,
     approve_request_action,
+    validation_requests,
+    validation_request_action,
 )
 
 urlpatterns = [
@@ -16,7 +18,11 @@ urlpatterns = [
     # MY REQUESTS
     path("my-requests/", my_requests),
 
-    # APPROVER QUEUE
+    # APPROVER
     path("approve-requests/", approve_requests),
-    path("approve-requests/<int:pk>/action/", approve_request_action),
+    path("approve-requests/<int:id>/action/", approve_request_action),
+
+    # VALIDATION
+    path("validation-requests/", validation_requests),
+    path("validation-requests/<int:request_id>/action/", validation_request_action),
 ]

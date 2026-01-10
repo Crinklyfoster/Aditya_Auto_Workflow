@@ -96,37 +96,38 @@ def my_requests(request):
 # --------------------------------------------------
 @api_view(["GET"])
 def approve_requests(request):
-    function_filter = request.GET.get("function")
+    function_key = request.GET.get("function")
 
     qs = PartCodeModificationRequest.objects.filter(
         status="PENDING_FOR_APPROVAL"
-    ).order_by("-submitted_at")
+    )
 
-    # Filter only if NOT "all"
-    if function_filter and function_filter != "all":
-        if function_filter != "part-code-modification":
-            return Response([])
+    # Optional function filter (future-proof)
+    if function_key and function_key != "all":
+        if function_key == "part-code-modification":
+            qs = qs  # only model implemented for now
+        else:
+            qs = qs.none()
 
     data = []
-    for r in qs:
+    for r in qs.order_by("-submitted_at"):
         data.append({
             "id": r.id,
-            "function": "part-code-modification",  # ✅ FIX
+            "function": "Part Code Modification",
             "plant": r.plant,
             "owner": r.created_by,
             "new_material_description": r.new_material_description,
             "part_code": r.sap_part_code,
             "submission_date": r.submitted_at,
             "status": r.status,
-            "approver": None,
-            "reason_for_return": r.remarks,
+            "approver": r.approved_by,
+            "previous_remarks": r.remarks,
             "modified_date": r.last_modified,
             "validation_status": r.sap_validation_status,
-            "validated_by": None,
+            "validated_by": r.sap_validated_by,
         })
 
     return Response(data)
-
 
 
 # --------------------------------------------------
@@ -134,38 +135,122 @@ def approve_requests(request):
 # --------------------------------------------------
 
 @api_view(["POST"])
-def approve_request_action(request, pk):
+def approve_request_action(request, id):
     try:
-        req = PartCodeModificationRequest.objects.get(pk=pk)
+        req = PartCodeModificationRequest.objects.get(id=id)
     except PartCodeModificationRequest.DoesNotExist:
-        return Response({"error": "Not found"}, status=404)
+        return Response({"error": "Request not found"}, status=404)
+
+    if req.status != "PENDING_FOR_APPROVAL":
+        return Response(
+            {"error": "Invalid state transition"},
+            status=400
+        )
 
     action = request.data.get("action")
-    remarks = request.data.get("remarks")
+    remarks = request.data.get("remarks", "").strip()
+    actor = request.user if request.user.is_authenticated else "APPROVER"
+
+    if action not in ["APPROVE", "REJECT", "RETURN"]:
+        return Response({"error": "Invalid action"}, status=400)
 
     if action in ["REJECT", "RETURN"] and not remarks:
         return Response(
-            {"error": "Remarks required"},
+            {"error": "Remarks are mandatory"},
             status=400
         )
 
     if action == "APPROVE":
         req.status = "APPROVED"
         req.approved_at = timezone.now()
-        req.approved_by = "approver@demo.com"
+        req.approved_by = actor
+        req.remarks = remarks or "Approved"
 
     elif action == "REJECT":
         req.status = "REJECTED"
-        req.remarks = remarks
         req.rejected_at = timezone.now()
-        req.rejected_by = "approver@demo.com"
+        req.rejected_by = actor
+        req.remarks = remarks
 
     elif action == "RETURN":
         req.status = "RETURNED_FOR_CORRECTION"
+        req.last_returned_by_role = "APPROVER"
         req.remarks = remarks
 
-    else:
+    req.save()
+
+    return Response({
+        "id": req.id,
+        "status": req.status
+    }, status=status.HTTP_200_OK)
+
+@api_view(["GET"])
+def validation_requests(request):
+    qs = PartCodeModificationRequest.objects.filter(status="APPROVED")
+
+    data = []
+    for r in qs:
+        data.append({
+            "id": r.id,
+            "function": "part-code-modification",
+            "plant": r.plant,
+            "owner": r.created_by,
+            "new_material_description": r.new_material_description,
+            "part_code": r.sap_part_code,
+            "submission_date": r.submitted_at,
+            "status": r.status,
+            "approver": r.approved_by,
+            "reason_for_return": r.sap_remarks_only_for_sap_validation_member_access,
+            "modified_date": r.last_modified,
+            "validation_status": r.sap_validation_status,
+            "validated_by": r.sap_validated_by,
+        })
+
+    return Response(data)
+
+@api_view(["POST"])
+def validation_request_action(request, request_id):
+    try:
+        req = PartCodeModificationRequest.objects.get(id=request_id)
+    except PartCodeModificationRequest.DoesNotExist:
+        return Response({"error": "Request not found"}, status=404)
+
+    if req.status != "APPROVED":
+        return Response(
+            {"error": "Only approved requests can be validated"},
+            status=400
+        )
+
+    action = request.data.get("action")
+    remarks = request.data.get("remarks", "").strip()
+    validator = get_current_user_email(request)
+
+    if action not in ["APPROVE", "REJECT", "RETURN"]:
         return Response({"error": "Invalid action"}, status=400)
 
+    if not remarks:
+        return Response({"error": "Remarks are mandatory"}, status=400)
+
+    # ---- ACTION HANDLING ----
+    if action == "APPROVE":
+        req.status = "VALIDATED"
+        req.sap_validation_status = "VALID"
+        req.sap_validated_at = timezone.now()
+        req.sap_validated_by = validator
+
+    elif action == "REJECT":
+        req.status = "REJECTED"
+        req.sap_validation_status = "INVALID"
+        req.rejected_at = timezone.now()
+        req.rejected_by = validator
+
+    elif action == "RETURN":
+        req.status = "RETURNED_FOR_CORRECTION"
+        req.sap_validation_status = "INVALID"
+        req.last_returned_by_role = "VALIDATOR"
+
+    req.sap_remarks_only_for_sap_validation_member_access = remarks
     req.save()
-    return Response({"status": "ok"})
+
+    return Response({"status": req.status})
+

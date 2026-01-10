@@ -6,8 +6,8 @@ import { usePathname } from "next/navigation";
 const menuItems = [
   { label: "Create Request", path: "/dashboard/create-request" },
   { label: "My Requests", path: "/dashboard/my-requests" },
-  { label: "Approve Request", path: "/dashboard/approve" },
-  { label: "Validation", path: "/dashboard/validation" },
+  { label: "Approve Request", path: "/dashboard/approve-requests" },
+  { label: "Validation Request", path: "/dashboard/validation-requests" },
   { label: "Reporting", path: "/dashboard/reporting" },
 ];
 
