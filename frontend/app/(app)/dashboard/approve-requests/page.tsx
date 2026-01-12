@@ -1,7 +1,8 @@
-
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+/* ================= TYPES ================= */
 
 type FunctionOption = {
   key: string;
@@ -38,11 +39,17 @@ type ApproveRequest = {
   validation_status: string | null;
 };
 
+/* ================= PAGE ================= */
+
 export default function ApproveRequestsPage() {
+  const tableScrollRef = useRef<HTMLDivElement | null>(null);
+
   const [selectedKey, setSelectedKey] = useState("all");
   const [requests, setRequests] = useState<ApproveRequest[]>([]);
   const [loading, setLoading] = useState(false);
   const [remarks, setRemarks] = useState<Record<number, string>>({});
+
+  /* ================= DATA LOAD ================= */
 
   async function fetchApproveRequests(fn: string) {
     setLoading(true);
@@ -62,6 +69,29 @@ export default function ApproveRequestsPage() {
 
     setLoading(false);
   }
+
+  useEffect(() => {
+    fetchApproveRequests(selectedKey);
+  }, [selectedKey]);
+
+  /* ================= MOUSE WHEEL → HORIZONTAL SCROLL ================= */
+
+  useEffect(() => {
+    const el = tableScrollRef.current;
+    if (!el) return;
+
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY !== 0) {
+        e.preventDefault();
+        el.scrollLeft += e.deltaY;
+      }
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+
+  /* ================= ACTION ================= */
 
   async function takeAction(id: number, action: string) {
     if ((action === "REJECT" || action === "RETURN") && !remarks[id]) {
@@ -88,9 +118,7 @@ export default function ApproveRequestsPage() {
     }
   }
 
-  useEffect(() => {
-    fetchApproveRequests(selectedKey);
-  }, [selectedKey]);
+  /* ================= UI ================= */
 
   return (
     <>
@@ -98,6 +126,7 @@ export default function ApproveRequestsPage() {
 
       <label>Filter by Function</label>
       <br />
+
       <select
         value={selectedKey}
         onChange={(e) => setSelectedKey(e.target.value)}
@@ -109,65 +138,78 @@ export default function ApproveRequestsPage() {
         ))}
       </select>
 
-      <br /><br />
+      <br />
+      <br />
 
       {loading && <p>Loading...</p>}
 
       {!loading && requests.length > 0 && (
-        <table border={1} cellPadding={8}>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Plant</th>
-              <th>Owner</th>
-              <th>Description</th>
-              <th>Part Code</th>
-              <th>Submitted</th>
-              <th>Status</th>
-              <th>Reason</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {requests.map((r) => (
-              <tr key={r.id}>
-                <td>{r.id}</td>
-                <td>{r.plant}</td>
-                <td>{r.owner}</td>
-                <td>{r.new_material_description}</td>
-                <td>{r.part_code}</td>
-                <td>{new Date(r.submission_date).toLocaleString()}</td>
-                <td>{r.status}</td>
-
-                <td>
-                  <textarea
-                    rows={2}
-                    value={remarks[r.id] || ""}
-                    onChange={(e) =>
-                      setRemarks({ ...remarks, [r.id]: e.target.value })
-                    }
-                  />
-                </td>
-
-                <td>
-                  <select
-                    onChange={(e) =>
-                      takeAction(r.id, e.target.value)
-                    }
-                    defaultValue=""
-                  >
-                    <option value="" disabled>
-                      Select
-                    </option>
-                    <option value="APPROVE">Approve</option>
-                    <option value="REJECT">Reject</option>
-                    <option value="RETURN">Return for Correction</option>
-                  </select>
-                </td>
+        <div
+          ref={tableScrollRef}
+          style={{
+            overflow: "auto",
+            maxWidth: "100%",
+          }}
+        >
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Plant</th>
+                <th>Owner</th>
+                <th>Description</th>
+                <th>Part Code</th>
+                <th>Submitted</th>
+                <th>Status</th>
+                <th>Remarks</th>
+                <th>Action</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+
+            <tbody>
+              {requests.map((r) => (
+                <tr key={r.id}>
+                  <td>{r.id}</td>
+                  <td>{r.plant}</td>
+                  <td>{r.owner}</td>
+                  <td>{r.new_material_description}</td>
+                  <td>{r.part_code}</td>
+                  <td>{new Date(r.submission_date).toLocaleString()}</td>
+                  <td>{r.status}</td>
+
+                  <td>
+                    <textarea
+                      rows={2}
+                      value={remarks[r.id] || ""}
+                      onChange={(e) =>
+                        setRemarks({
+                          ...remarks,
+                          [r.id]: e.target.value,
+                        })
+                      }
+                    />
+                  </td>
+
+                  <td>
+                    <select
+                      defaultValue=""
+                      onChange={(e) =>
+                        takeAction(r.id, e.target.value)
+                      }
+                    >
+                      <option value="" disabled>
+                        Select
+                      </option>
+                      <option value="APPROVE">Approve</option>
+                      <option value="REJECT">Reject</option>
+                      <option value="RETURN">Return for Correction</option>
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {!loading && requests.length === 0 && (

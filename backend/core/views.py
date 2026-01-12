@@ -7,19 +7,19 @@ from .models import PartCodeModificationRequest
 from .utils import get_current_user_email
 
 
-# -------------------------
+# ==================================================
 # HEALTH CHECK
-# -------------------------
+# ==================================================
 @api_view(["GET"])
 def ping(request):
     return Response({"status": "ok"})
 
 
-# -------------------------
-# CREATE REQUEST (DEMO)
-# -------------------------
+# ==================================================
+# CREATE REQUEST (Create Requests)
+# ==================================================
 @api_view(["POST"])
-def submit_part_code_demo(request):
+def create_requests(request):
     data = request.data
     user_email = get_current_user_email(request)
     now = timezone.now()
@@ -44,7 +44,6 @@ def submit_part_code_demo(request):
         status="PENDING_FOR_APPROVAL",
         created_by=user_email,
 
-        # IMPORTANT (manual timestamps for legacy DB)
         created=now,
         last_modified=now,
         submitted_at=now,
@@ -56,27 +55,25 @@ def submit_part_code_demo(request):
     )
 
 
-# -------------------------
-# MY REQUESTS
-# -------------------------
+# ==================================================
+# CREATED REQUESTS (Creator History)
+# ==================================================
 @api_view(["GET"])
-def my_requests(request):
+def created_requests(request):
     function = request.GET.get("function")
 
-    if function == "all" or not function:
-        qs = PartCodeModificationRequest.objects.all()
-    elif function == "part-code-modification":
-        qs = PartCodeModificationRequest.objects.all()
-    else:
-        qs = PartCodeModificationRequest.objects.none()
+    qs = PartCodeModificationRequest.objects.all()
+
+    if function and function not in ["all", "part-code-modification"]:
+        qs = qs.none()
 
     qs = qs.order_by("-created")
 
-    data = [
+    return Response([
         {
             "id": r.id,
             "plant": r.plant,
-            "created_by": r.created_by,
+            "owner": r.created_by,
             "sap_part_code": r.sap_part_code,
             "new_material_description": r.new_material_description,
             "status": r.status,
@@ -86,14 +83,13 @@ def my_requests(request):
             "validated_by": r.sap_validated_by,
         }
         for r in qs
-    ]
-
-    return Response(data)
+    ])
 
 
-# --------------------------------------------------
-# APPROVE REQUESTS – FETCH QUEUE
-# --------------------------------------------------
+# ==================================================
+# APPROVE REQUESTS (Approver Queue)
+# ==================================================
+
 @api_view(["GET"])
 def approve_requests(request):
     function_key = request.GET.get("function")
@@ -102,16 +98,19 @@ def approve_requests(request):
         status="PENDING_FOR_APPROVAL"
     )
 
-    # Optional function filter (future-proof)
+    # ---- FUNCTION FILTER (SYNC WITH DROPDOWN) ----
     if function_key and function_key != "all":
         if function_key == "part-code-modification":
-            qs = qs  # only model implemented for now
+            # Only one workflow implemented for now
+            qs = qs
         else:
+            # Unknown / not implemented workflows
             qs = qs.none()
 
-    data = []
-    for r in qs.order_by("-submitted_at"):
-        data.append({
+    qs = qs.order_by("-submitted_at")
+
+    return Response([
+        {
             "id": r.id,
             "function": "Part Code Modification",
             "plant": r.plant,
@@ -123,17 +122,13 @@ def approve_requests(request):
             "approver": r.approved_by,
             "previous_remarks": r.remarks,
             "modified_date": r.last_modified,
-            "validation_status": r.sap_validation_status,
-            "validated_by": r.sap_validated_by,
-        })
+        }
+        for r in qs
+    ])
 
-    return Response(data)
-
-
-# --------------------------------------------------
-# APPROVE REQUEST – ACTION
-# --------------------------------------------------
-
+# ==================================================
+# APPROVE REQUEST ACTION
+# ==================================================
 @api_view(["POST"])
 def approve_request_action(request, id):
     try:
@@ -142,55 +137,102 @@ def approve_request_action(request, id):
         return Response({"error": "Request not found"}, status=404)
 
     if req.status != "PENDING_FOR_APPROVAL":
-        return Response(
-            {"error": "Invalid state transition"},
-            status=400
-        )
+        return Response({"error": "Invalid state transition"}, status=400)
 
     action = request.data.get("action")
-    remarks = request.data.get("remarks", "").strip()
-    actor = request.user if request.user.is_authenticated else "APPROVER"
+    remarks = (request.data.get("remarks") or "").strip()
+    actor = get_current_user_email(request)
+    now = timezone.now()
 
     if action not in ["APPROVE", "REJECT", "RETURN"]:
         return Response({"error": "Invalid action"}, status=400)
 
-    if action in ["REJECT", "RETURN"] and not remarks:
+    if action == "RETURN" and not remarks:
         return Response(
-            {"error": "Remarks are mandatory"},
+            {"error": "Remarks are mandatory for return"},
             status=400
         )
 
     if action == "APPROVE":
         req.status = "APPROVED"
-        req.approved_at = timezone.now()
+        req.approved_at = now
         req.approved_by = actor
-        req.remarks = remarks or "Approved"
 
     elif action == "REJECT":
         req.status = "REJECTED"
-        req.rejected_at = timezone.now()
+        req.rejected_at = now
         req.rejected_by = actor
-        req.remarks = remarks
 
     elif action == "RETURN":
         req.status = "RETURNED_FOR_CORRECTION"
         req.last_returned_by_role = "APPROVER"
+
+    if remarks:
         req.remarks = remarks
 
+    req.last_modified = now
     req.save()
 
-    return Response({
-        "id": req.id,
-        "status": req.status
-    }, status=status.HTTP_200_OK)
+    return Response({"status": req.status})
 
+# ==================================================
+# APPROVED REQUESTS (Approver History)
+# ==================================================
+@api_view(["GET"])
+def approved_requests(request):
+    function_key = request.GET.get("function")
+
+    qs = PartCodeModificationRequest.objects.exclude(
+        status="PENDING_FOR_APPROVAL"
+    )
+
+    # 🔑 FUNCTION FILTER
+    if function_key and function_key != "all":
+        if function_key != "part-code-modification":
+            qs = qs.none()
+
+    qs = qs.order_by("-last_modified")
+
+    data = [
+        {
+            "id": r.id,
+            "plant": r.plant,
+            "owner": r.created_by,
+            "new_material_description": r.new_material_description,
+            "part_code": r.sap_part_code,
+            "status": r.status,
+            "approver": r.approved_by,
+            "submission_date": r.submitted_at,
+            "modified_date": r.last_modified,
+            "validation_status": r.sap_validation_status,
+            "validated_by": r.sap_validated_by,
+        }
+        for r in qs
+    ]
+
+    return Response(data)
+
+# ==================================================
+# VALIDATION REQUESTS (Validator Queue)
+# ==================================================
 @api_view(["GET"])
 def validation_requests(request):
+    function_key = request.GET.get("function")
+
     qs = PartCodeModificationRequest.objects.filter(status="APPROVED")
 
-    data = []
-    for r in qs:
-        data.append({
+    # ---- FUNCTION FILTER (SYNC WITH DROPDOWN) ----
+    if function_key and function_key != "all":
+        if function_key == "part-code-modification":
+            # only workflow implemented for now
+            qs = qs
+        else:
+            qs = qs.none()
+
+    qs = qs.order_by("-submitted_at")
+
+    return Response([
+        {
             "id": r.id,
             "function": "part-code-modification",
             "plant": r.plant,
@@ -200,14 +242,16 @@ def validation_requests(request):
             "submission_date": r.submitted_at,
             "status": r.status,
             "approver": r.approved_by,
-            "reason_for_return": r.sap_remarks_only_for_sap_validation_member_access,
             "modified_date": r.last_modified,
             "validation_status": r.sap_validation_status,
             "validated_by": r.sap_validated_by,
-        })
+        }
+        for r in qs
+    ])
 
-    return Response(data)
-
+# ==================================================
+# VALIDATION REQUEST ACTION
+# ==================================================
 @api_view(["POST"])
 def validation_request_action(request, request_id):
     try:
@@ -222,26 +266,29 @@ def validation_request_action(request, request_id):
         )
 
     action = request.data.get("action")
-    remarks = request.data.get("remarks", "").strip()
+    remarks = (request.data.get("remarks") or "").strip()
     validator = get_current_user_email(request)
+    now = timezone.now()
 
     if action not in ["APPROVE", "REJECT", "RETURN"]:
         return Response({"error": "Invalid action"}, status=400)
 
-    if not remarks:
-        return Response({"error": "Remarks are mandatory"}, status=400)
+    if action == "RETURN" and not remarks:
+        return Response(
+            {"error": "Remarks are mandatory for return"},
+            status=400
+        )
 
-    # ---- ACTION HANDLING ----
     if action == "APPROVE":
         req.status = "VALIDATED"
         req.sap_validation_status = "VALID"
-        req.sap_validated_at = timezone.now()
+        req.sap_validated_at = now
         req.sap_validated_by = validator
 
     elif action == "REJECT":
         req.status = "REJECTED"
         req.sap_validation_status = "INVALID"
-        req.rejected_at = timezone.now()
+        req.rejected_at = now
         req.rejected_by = validator
 
     elif action == "RETURN":
@@ -249,8 +296,48 @@ def validation_request_action(request, request_id):
         req.sap_validation_status = "INVALID"
         req.last_returned_by_role = "VALIDATOR"
 
-    req.sap_remarks_only_for_sap_validation_member_access = remarks
+    if remarks:
+        req.sap_remarks_only_for_sap_validation_member_access = remarks
+
+    req.last_modified = now
     req.save()
 
     return Response({"status": req.status})
 
+# ==================================================
+# VALIDATED REQUESTS (Validator History)
+# ==================================================
+@api_view(["GET"])
+def validated_requests(request):
+    function_key = request.GET.get("function")
+
+    qs = PartCodeModificationRequest.objects.filter(
+        status__in=["VALIDATED", "REJECTED"]
+    )
+
+    # ---- FUNCTION FILTER (SYNC WITH DROPDOWN) ----
+    if function_key and function_key != "all":
+        if function_key == "part-code-modification":
+            qs = qs  # only workflow implemented for now
+        else:
+            qs = qs.none()
+
+    qs = qs.order_by("-last_modified")
+
+    data = []
+    for r in qs:
+        data.append({
+            "id": r.id,
+            "plant": r.plant,
+            "owner": r.created_by,
+            "new_material_description": r.new_material_description,
+            "part_code": r.sap_part_code,
+            "submission_date": r.submitted_at,
+            "status": r.status,  # VALIDATED / REJECTED
+            "approver": r.approved_by,
+            "modified_date": r.last_modified,
+            "validation_status": r.sap_validation_status,
+            "validated_by": r.sap_validated_by,
+        })
+
+    return Response(data)

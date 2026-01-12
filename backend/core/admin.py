@@ -1,6 +1,6 @@
 from django.contrib import admin
-from .models import DemoUser
+from .models import User
 
-@admin.register(DemoUser)
-class DemoUserAdmin(admin.ModelAdmin):
+@admin.register(User)
+class UserAdmin(admin.ModelAdmin):
     list_display = ('email', 'is_active', 'created_at')

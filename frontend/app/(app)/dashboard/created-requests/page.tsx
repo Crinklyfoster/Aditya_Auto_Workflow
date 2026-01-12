@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 /* ================= TYPES ================= */
@@ -48,6 +48,7 @@ const FUNCTION_OPTIONS: FunctionOption[] = [
 
 export default function MyRequestsPage() {
   const router = useRouter();
+  const tableScrollRef = useRef<HTMLDivElement | null>(null);
 
   const [selectedFunction, setSelectedFunction] = useState("all");
   const [requests, setRequests] = useState<MyRequest[]>([]);
@@ -60,8 +61,8 @@ export default function MyRequestsPage() {
 
     const url =
       func === "all"
-        ? "http://127.0.0.1:8000/api/my-requests/"
-        : `http://127.0.0.1:8000/api/my-requests/?function=${func}`;
+        ? "http://127.0.0.1:8000/api/created-requests/"
+        : `http://127.0.0.1:8000/api/created-requests/?function=${func}`;
 
     const res = await fetch(url);
 
@@ -79,10 +80,26 @@ export default function MyRequestsPage() {
     fetchRequests(selectedFunction);
   }, [selectedFunction]);
 
+  /* ================= MOUSE WHEEL → HORIZONTAL SCROLL ================= */
+
+  useEffect(() => {
+    const el = tableScrollRef.current;
+    if (!el) return;
+
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY !== 0) {
+        e.preventDefault();
+        el.scrollLeft += e.deltaY;
+      }
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+
   /* ================= ACTIONS ================= */
 
   function handleResubmit(request: MyRequest) {
-    // Opens a NEW form, NOT editing the same row
     router.push(
       `/dashboard/part-code/modification?sourceRequestId=${request.id}`
     );
@@ -113,56 +130,62 @@ export default function MyRequestsPage() {
 
       {loading && <p>Loading...</p>}
 
-      {!loading && requests.length === 0 && (
-        <p>No requests found.</p>
-      )}
+      {!loading && requests.length === 0 && <p>No requests found.</p>}
 
       {!loading && requests.length > 0 && (
-        <table border={1} cellPadding={8} width="100%">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Plant</th>
-              <th>Owner</th>
-              <th>New Material Description</th>
-              <th>Part Code</th>
-              <th>Submission Date</th>
-              <th>Status</th>
-              <th>Approver</th>
-              <th>Action</th>
-              <th>Reason for Return</th>
-              <th>Modified Date</th>
-              <th>Validation Status</th>
-              <th>Validated By</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {requests.map((r) => (
-              <tr key={r.id}>
-                <td>{r.id}</td>
-                <td>{r.plant}</td>
-                <td>{r.created_by}</td>
-                <td>{r.new_material_description}</td>
-                <td>{r.sap_part_code}</td>
-                <td>{new Date(r.submission_date).toLocaleString()}</td>
-                <td>{r.status}</td>
-                <td>{r.approver ?? "-"}</td>
-                <td>{r.reason_for_return ?? "-"}</td>
-                <td>{new Date(r.last_modified).toLocaleString()}</td>
-                <td>
-                  {r.status === "RETURNED_FOR_CORRECTION" && (
-                    <button onClick={() => handleResubmit(r)}>
-                      Edit & Resubmit
-                    </button>
-                  )}
-                </td>
-                <td>{r.validation_status}</td>
-                <td>{r.validated_by ?? "-"}</td>
+        <div
+          ref={tableScrollRef}
+          style={{
+            overflow: "auto",
+            maxWidth: "100%",
+          }}
+        >
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Plant</th>
+                <th>Owner</th>
+                <th>New Material Description</th>
+                <th>Part Code</th>
+                <th>Submission Date</th>
+                <th>Status</th>
+                <th>Approver</th>
+                <th>Reason for Return</th>
+                <th>Modified Date</th>
+                <th>Action</th>
+                <th>Validation Status</th>
+                <th>Validated By</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+
+            <tbody>
+              {requests.map((r) => (
+                <tr key={r.id}>
+                  <td>{r.id}</td>
+                  <td>{r.plant}</td>
+                  <td>{r.created_by}</td>
+                  <td>{r.new_material_description}</td>
+                  <td>{r.sap_part_code}</td>
+                  <td>{new Date(r.submission_date).toLocaleString()}</td>
+                  <td>{r.status}</td>
+                  <td>{r.approver ?? "-"}</td>
+                  <td>{r.reason_for_return ?? "-"}</td>
+                  <td>{new Date(r.last_modified).toLocaleString()}</td>
+                  <td>
+                    {r.status === "RETURNED_FOR_CORRECTION" && (
+                      <button onClick={() => handleResubmit(r)}>
+                        Edit & Resubmit
+                      </button>
+                    )}
+                  </td>
+                  <td>{r.validation_status}</td>
+                  <td>{r.validated_by ?? "-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </>
   );

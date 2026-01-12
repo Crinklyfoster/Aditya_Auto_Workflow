@@ -1,7 +1,7 @@
 from django.db import models
 from django.contrib.auth.hashers import make_password
 
-class DemoUser(models.Model):
+class User(models.Model):
     email = models.EmailField(unique=True)
     password = models.CharField(max_length=128)  # ✅ REQUIRED
     is_active = models.BooleanField(default=True)
@@ -18,7 +18,7 @@ class DemoUser(models.Model):
 
 
 # --------------------------------------------------
-# Part Code Modification – DEMO WORKFLOW MODEL
+# Part Code Modification – WORKFLOW MODEL
 # --------------------------------------------------
 
 class PartCodeModificationRequest(models.Model):

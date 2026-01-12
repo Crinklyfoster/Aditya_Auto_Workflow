@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+/* ================= TYPES ================= */
 
 type ValidationRequest = {
   id: number;
@@ -18,23 +20,50 @@ type ValidationRequest = {
 
 type ActionType = "APPROVE" | "REJECT" | "RETURN" | "";
 
+type FunctionOption = {
+  key: string;
+  label: string;
+};
+
+/* ================= FUNCTION FILTER OPTIONS ================= */
+
+const FUNCTION_OPTIONS: FunctionOption[] = [
+  { key: "all", label: "All" },
+  { key: "asset-creation", label: "Asset Creation" },
+  { key: "customer-master", label: "Customer Master Creation/Modification" },
+  { key: "engineering-bom-note", label: "Engineering BOM Note" },
+  { key: "engineering-bom-note-change", label: "Engineering BOM Note Change" },
+  { key: "hiring-indent", label: "Hiring Indent" },
+  { key: "npv-submission", label: "NPV Submission" },
+  { key: "part-code-creation", label: "Part Code Creation" },
+  { key: "part-code-modification", label: "Part Code Modification" },
+  { key: "project-approval", label: "Project Approval" },
+  { key: "routing-master", label: "Routing Master Creation/Modification" },
+  { key: "selling-price-updation", label: "Selling Price Updation" },
+  { key: "vendor-master", label: "Vendor Master Creation/Modification" },
+];
+
+/* ================= COMPONENT ================= */
+
 export default function ValidationRequestsPage() {
+  const tableScrollRef = useRef<HTMLDivElement | null>(null);
+
+  const [selectedFunction, setSelectedFunction] = useState<string>("all");
   const [requests, setRequests] = useState<ValidationRequest[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
 
   const [actions, setActions] = useState<Record<number, ActionType>>({});
   const [remarks, setRemarks] = useState<Record<number, string>>({});
   const [submitting, setSubmitting] = useState<number | null>(null);
 
-  // -------------------------
-  // FETCH VALIDATION QUEUE
-  // -------------------------
-  async function fetchValidationRequests() {
+  /* ================= FETCH ================= */
+
+  async function fetchValidationRequests(functionKey: string) {
     setLoading(true);
 
     try {
       const res = await fetch(
-        "http://127.0.0.1:8000/api/validation-requests/"
+        `http://127.0.0.1:8000/api/validation-requests/?function=${functionKey}`
       );
 
       if (res.ok) {
@@ -52,23 +81,22 @@ export default function ValidationRequestsPage() {
   }
 
   useEffect(() => {
-    fetchValidationRequests();
-  }, []);
+    fetchValidationRequests(selectedFunction);
+  }, [selectedFunction]);
 
-  // -------------------------
-  // HANDLE ACTION SUBMIT
-  // -------------------------
-  async function submitAction(requestId: number) {
-    const action = actions[requestId];
-    const remark = remarks[requestId]?.trim();
+  /* ================= ACTION SUBMIT ================= */
+
+  async function submitAction(id: number) {
+    const action = actions[id];
+    const remark = (remarks[id] || "").trim();
 
     if (!action) {
       alert("Please select an action");
       return;
     }
 
-    if (!remark) {
-      alert("Remarks are mandatory");
+    if (action === "RETURN" && !remark) {
+      alert("Reason for return is mandatory");
       return;
     }
 
@@ -81,17 +109,17 @@ export default function ValidationRequestsPage() {
 
     if (!window.confirm(confirmMsg)) return;
 
-    setSubmitting(requestId);
+    setSubmitting(id);
 
     try {
       const res = await fetch(
-        `http://127.0.0.1:8000/api/validation-requests/${requestId}/action/`,
+        `http://127.0.0.1:8000/api/validation-requests/${id}/action/`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             action,
-            remarks: remark,
+            remarks: remark || undefined,
           }),
         }
       );
@@ -102,8 +130,8 @@ export default function ValidationRequestsPage() {
         return;
       }
 
-      // Remove processed request from queue
-      setRequests((prev) => prev.filter((r) => r.id !== requestId));
+      // remove row after successful action
+      setRequests((prev) => prev.filter((r) => r.id !== id));
     } catch (err) {
       console.error(err);
       alert("Action failed");
@@ -112,13 +140,29 @@ export default function ValidationRequestsPage() {
     setSubmitting(null);
   }
 
-  // -------------------------
-  // RENDER
-  // -------------------------
+  /* ================= UI ================= */
+
   return (
     <>
       <h1>Validation Requests</h1>
-      <p>Final validation queue (read-only, action-based)</p>
+      <p>Final validation queue (action-based)</p>
+
+      {/* -------- FUNCTION FILTER -------- */}
+      <label>Filter by Function</label>
+      <br />
+      <select
+        value={selectedFunction}
+        onChange={(e) => setSelectedFunction(e.target.value)}
+      >
+        {FUNCTION_OPTIONS.map((opt) => (
+          <option key={opt.key} value={opt.key}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+
+      <br />
+      <br />
 
       {loading && <p>Loading...</p>}
 
@@ -127,102 +171,99 @@ export default function ValidationRequestsPage() {
       )}
 
       {!loading && requests.length > 0 && (
-        <table border={1} cellPadding={8} width="100%">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Plant</th>
-              <th>Owner</th>
-              <th>New Material Description</th>
-              <th>Part Code</th>
-              <th>Submission Date</th>
-              <th>Status</th>
-              <th>Approver</th>
-              <th>Action</th>
-              <th>Reason for Return</th>
-              <th>Modified Date</th>
-              <th>Validation Status</th>
-              <th>Validated By</th>
-              <th>Submit</th>
-            </tr>
-          </thead>
+        <div ref={tableScrollRef} style={{ overflow: "auto" }}>
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Plant</th>
+                <th>Owner</th>
+                <th>Description</th>
+                <th>Part Code</th>
+                <th>Submitted</th>
+                <th>Status</th>
+                <th>Approver</th>
+                <th>Action</th>
+                <th>Reason for Return</th>
+                <th>Modified</th>
+                <th>Validation Status</th>
+                <th>Validated By</th>
+                <th>Submit</th>
+              </tr>
+            </thead>
 
-          <tbody>
-            {requests.map((r) => {
-              const action = actions[r.id] || "";
-              const remark = remarks[r.id] || "";
-              const canSubmit =
-                action !== "" &&
-                remark.trim().length > 0 &&
-                submitting !== r.id;
+            <tbody>
+              {requests.map((r) => {
+                const action = actions[r.id] || "";
+                const remark = remarks[r.id] || "";
 
-              return (
-                <tr key={r.id}>
-                  <td>{r.id}</td>
-                  <td>{r.plant}</td>
-                  <td>{r.owner}</td>
-                  <td>{r.new_material_description}</td>
-                  <td>{r.part_code}</td>
-                  <td>{new Date(r.submission_date).toLocaleString()}</td>
-                  <td>{r.status}</td>
-                  <td>{r.approver || "-"}</td>
+                const canSubmit =
+                  action &&
+                  (action !== "RETURN" || remark.trim().length > 0) &&
+                  submitting !== r.id;
 
-                  {/* ACTION */}
-                  <td>
-                    <select
-                      value={action}
-                      onChange={(e) =>
-                        setActions((prev) => ({
-                          ...prev,
-                          [r.id]: e.target.value as ActionType,
-                        }))
-                      }
-                    >
-                      <option value="">-- Select --</option>
-                      <option value="APPROVE">Approve</option>
-                      <option value="REJECT">Reject</option>
-                      <option value="RETURN">Return for Correction</option>
-                    </select>
-                  </td>
+                return (
+                  <tr key={r.id}>
+                    <td>{r.id}</td>
+                    <td>{r.plant}</td>
+                    <td>{r.owner}</td>
+                    <td>{r.new_material_description}</td>
+                    <td>{r.part_code}</td>
+                    <td>{new Date(r.submission_date).toLocaleString()}</td>
+                    <td>{r.status}</td>
+                    <td>{r.approver || "-"}</td>
 
-                  {/* REMARKS */}
-                  <td>
-                    <textarea
-                      rows={2}
-                      disabled={!action}
-                      placeholder={
-                        !action
-                          ? "Select action first"
-                          : "Enter mandatory remarks"
-                      }
-                      value={remark}
-                      onChange={(e) =>
-                        setRemarks((prev) => ({
-                          ...prev,
-                          [r.id]: e.target.value,
-                        }))
-                      }
-                    />
-                  </td>
+                    <td>
+                      <select
+                        value={action}
+                        onChange={(e) =>
+                          setActions((prev) => ({
+                            ...prev,
+                            [r.id]: e.target.value as ActionType,
+                          }))
+                        }
+                      >
+                        <option value="">-- Select --</option>
+                        <option value="APPROVE">Approve</option>
+                        <option value="REJECT">Reject</option>
+                        <option value="RETURN">Return for Correction</option>
+                      </select>
+                    </td>
 
-                  <td>{new Date(r.modified_date).toLocaleString()}</td>
-                  <td>{r.validation_status || "-"}</td>
-                  <td>{r.validated_by || "-"}</td>
+                    <td>
+                      {action === "RETURN" && (
+                        <textarea
+                          rows={2}
+                          placeholder="Mandatory reason"
+                          value={remark}
+                          onChange={(e) =>
+                            setRemarks((prev) => ({
+                              ...prev,
+                              [r.id]: e.target.value,
+                            }))
+                          }
+                        />
+                      )}
+                    </td>
 
-                  {/* SUBMIT */}
-                  <td>
-                    <button
-                      disabled={!canSubmit}
-                      onClick={() => submitAction(r.id)}
-                    >
-                      {submitting === r.id ? "Processing..." : "Submit"}
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                    <td>{new Date(r.modified_date).toLocaleString()}</td>
+                    <td>{r.validation_status || "-"}</td>
+                    <td>{r.validated_by || "-"}</td>
+
+                    <td>
+                      <button
+                        disabled={!canSubmit}
+                        onClick={() => submitAction(r.id)}
+                      >
+                        {submitting === r.id ? "Processing..." : "Submit"}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
     </>
   );

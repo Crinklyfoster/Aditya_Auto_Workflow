@@ -5,7 +5,7 @@ from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 
 
-class DemoJWTAuthentication(BaseAuthentication):
+class JWTAuthentication(BaseAuthentication):
     def authenticate(self, request):
         header = request.headers.get("Authorization")
 

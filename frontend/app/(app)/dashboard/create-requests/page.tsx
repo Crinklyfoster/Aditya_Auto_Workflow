@@ -72,7 +72,7 @@ const FUNCTION_OPTIONS: FunctionOption[] = [
   },
 ];
 
-export default function CreateRequestPage() {
+export default function CreateRequestsPage() {
   const router = useRouter();
   const [selectedKey, setSelectedKey] = useState("");
 
@@ -91,7 +91,7 @@ export default function CreateRequestPage() {
 
   return (
     <>
-      <h1>Create Request</h1>
+      <h1>Create Requests</h1>
 
       <label>Select Function</label>
       <br />

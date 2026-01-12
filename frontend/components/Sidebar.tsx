@@ -4,10 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const menuItems = [
-  { label: "Create Request", path: "/dashboard/create-request" },
-  { label: "My Requests", path: "/dashboard/my-requests" },
-  { label: "Approve Request", path: "/dashboard/approve-requests" },
-  { label: "Validation Request", path: "/dashboard/validation-requests" },
+  { label: "Create Requests", path: "/dashboard/create-requests" },
+  { label: "Created Requests", path: "/dashboard/created-requests" },
+  { label: "Approve Requests", path: "/dashboard/approve-requests" },
+  { label: "Approved Requests", path: "/dashboard/approved-requests" },
+  { label: "Validation Requests", path: "/dashboard/validation-requests" },
+  { label: "Validated Requests", path: "/dashboard/validated-requests" },
   { label: "Reporting", path: "/dashboard/reporting" },
 ];
 

@@ -68,11 +68,6 @@ export default function PartCodeModificationPage() {
     setFiles(Array.from(e.target.files));
   }
 
-  function removeFile(index: number) {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  /* ✅ REAL SUBMIT → BACKEND */
   async function handleSubmit() {
     if (!form.plant || !form.sapPartCode || !form.newDescription) {
       alert("Please fill mandatory fields");
@@ -82,7 +77,7 @@ export default function PartCodeModificationPage() {
     setLoading(true);
 
     const res = await fetch(
-      "http://127.0.0.1:8000/api/part-code/submit-demo/",
+      "http://127.0.0.1:8000/api/create-requests/",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -97,15 +92,15 @@ export default function PartCodeModificationPage() {
       return;
     }
 
-    alert("Request saved to database (demo)");
+    alert("Request saved to database ");
   }
 
   return (
-    <>
+    <div className="form-page">
       <h1>Part Code Modification</h1>
       <p>Demo form aligned with SAP / Power Apps structure.</p>
 
-      <div className="form-grid">
+      <form className="form-grid" onSubmit={(e) => e.preventDefault()}>
         {/* Plant */}
         <div>
           <label>* Plant</label>
@@ -135,40 +130,24 @@ export default function PartCodeModificationPage() {
           />
         </div>
 
-        {/* HSN Code */}
         <div>
           <label>HSN Code</label>
-          <input
-            value={form.hsnCode}
-            onChange={(e) => update("hsnCode", e.target.value)}
-          />
+          <input value={form.hsnCode} onChange={(e) => update("hsnCode", e.target.value)} />
         </div>
 
-        {/* From – To State */}
         <div>
           <label>From State – To State</label>
-          <input
-            value={form.fromToState}
-            onChange={(e) => update("fromToState", e.target.value)}
-          />
+          <input value={form.fromToState} onChange={(e) => update("fromToState", e.target.value)} />
         </div>
 
-        {/* Tax % */}
         <div>
           <label>Tax %</label>
-          <input
-            value={form.taxPercent}
-            onChange={(e) => update("taxPercent", e.target.value)}
-          />
+          <input value={form.taxPercent} onChange={(e) => update("taxPercent", e.target.value)} />
         </div>
 
-        {/* Sales Views */}
         <div>
           <label>Sales Views</label>
-          <select
-            value={form.salesViews}
-            onChange={(e) => update("salesViews", e.target.value)}
-          >
+          <select value={form.salesViews} onChange={(e) => update("salesViews", e.target.value)}>
             <option value="">-- Select --</option>
             {SALES_VIEWS.map((v) => (
               <option key={v.value} value={v.value}>{v.label}</option>
@@ -176,13 +155,9 @@ export default function PartCodeModificationPage() {
           </select>
         </div>
 
-        {/* Supplying Plant */}
         <div>
           <label>Supplying Plant</label>
-          <select
-            value={form.supplyingPlant}
-            onChange={(e) => update("supplyingPlant", e.target.value)}
-          >
+          <select value={form.supplyingPlant} onChange={(e) => update("supplyingPlant", e.target.value)}>
             <option value="">-- Select --</option>
             {PLANTS.map((p) => (
               <option key={p} value={p}>{p}</option>
@@ -190,13 +165,9 @@ export default function PartCodeModificationPage() {
           </select>
         </div>
 
-        {/* Receiving Plant */}
         <div>
           <label>* Receiving Plant</label>
-          <select
-            value={form.receivingPlant}
-            onChange={(e) => update("receivingPlant", e.target.value)}
-          >
+          <select value={form.receivingPlant} onChange={(e) => update("receivingPlant", e.target.value)}>
             <option value="">-- Select --</option>
             {PLANTS.map((p) => (
               <option key={p} value={p}>{p}</option>
@@ -204,13 +175,9 @@ export default function PartCodeModificationPage() {
           </select>
         </div>
 
-        {/* Tax Indication */}
         <div>
           <label>Tax Indication of the Material</label>
-          <select
-            value={form.taxIndication}
-            onChange={(e) => update("taxIndication", e.target.value)}
-          >
+          <select value={form.taxIndication} onChange={(e) => update("taxIndication", e.target.value)}>
             <option value="">-- Select --</option>
             {TAX_INDICATIONS.map((t) => (
               <option key={t.value} value={t.value}>{t.label}</option>
@@ -218,13 +185,9 @@ export default function PartCodeModificationPage() {
           </select>
         </div>
 
-        {/* Procurement Type */}
         <div>
           <label>Procurement Type</label>
-          <select
-            value={form.procurementType}
-            onChange={(e) => update("procurementType", e.target.value)}
-          >
+          <select value={form.procurementType} onChange={(e) => update("procurementType", e.target.value)}>
             <option value="">-- Select --</option>
             {PROCUREMENT_TYPES.map((p) => (
               <option key={p.value} value={p.value}>{p.label}</option>
@@ -232,22 +195,14 @@ export default function PartCodeModificationPage() {
           </select>
         </div>
 
-        {/* Storage Location */}
         <div>
           <label>Activate Storage Location</label>
-          <input
-            value={form.storageLocation}
-            onChange={(e) => update("storageLocation", e.target.value)}
-          />
+          <input value={form.storageLocation} onChange={(e) => update("storageLocation", e.target.value)} />
         </div>
 
-        {/* Production Version */}
         <div>
           <label>Production Version Update</label>
-          <select
-            value={form.productionVersion}
-            onChange={(e) => update("productionVersion", e.target.value)}
-          >
+          <select value={form.productionVersion} onChange={(e) => update("productionVersion", e.target.value)}>
             <option value="">-- Select --</option>
             {PRODUCTION_VERSION_OPTIONS.map((p) => (
               <option key={p.value} value={p.value}>{p.label}</option>
@@ -255,13 +210,9 @@ export default function PartCodeModificationPage() {
           </select>
         </div>
 
-        {/* Quality Management */}
         <div>
           <label>Quality Management</label>
-          <select
-            value={form.qualityManagement}
-            onChange={(e) => update("qualityManagement", e.target.value)}
-          >
+          <select value={form.qualityManagement} onChange={(e) => update("qualityManagement", e.target.value)}>
             <option value="">-- Select --</option>
             {QUALITY_MANAGEMENT_OPTIONS.map((q) => (
               <option key={q.value} value={q.value}>{q.label}</option>
@@ -269,26 +220,28 @@ export default function PartCodeModificationPage() {
           </select>
         </div>
 
-        {/* Remarks */}
         <div className="full">
           <label>* Detailed Query Remarks</label>
-          <textarea
-            rows={4}
-            value={form.remarks}
-            onChange={(e) => update("remarks", e.target.value)}
-          />
+          <textarea rows={4} value={form.remarks} onChange={(e) => update("remarks", e.target.value)} />
         </div>
 
-        {/* Attachments */}
         <div className="full">
           <label>Attachments</label>
           <input type="file" multiple onChange={handleFileChange} />
         </div>
-      </div>
 
-      <button onClick={handleSubmit} disabled={loading}>
-        {loading ? "Submitting..." : "Submit"}
-      </button>
-    </>
+        {/* SUBMIT (inside form, scroll-safe) */}
+        <div className="full">
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={loading}
+            style={{ marginTop: "24px" }}
+          >
+            {loading ? "Submitting..." : "Submit"}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
