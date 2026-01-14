@@ -16,7 +16,7 @@ def ping(request):
 
 
 # ==================================================
-# CREATE REQUEST (Create Requests)
+# CREATE REQUEST (Create Requests page ONLY)
 # ==================================================
 @api_view(["POST"])
 def create_requests(request):
@@ -72,24 +72,107 @@ def created_requests(request):
     return Response([
         {
             "id": r.id,
+            "function": "part-code-modification",
             "plant": r.plant,
-            "owner": r.created_by,
-            "sap_part_code": r.sap_part_code,
+            "created_by": r.created_by,
             "new_material_description": r.new_material_description,
+            "sap_part_code": r.sap_part_code,
             "status": r.status,
             "approver": r.approved_by,
-            "created": r.created,
+            "submission_date": r.submitted_at,
+            "reason_for_return": r.remarks,
+            "last_modified": r.last_modified,
             "validation_status": r.sap_validation_status,
             "validated_by": r.sap_validated_by,
         }
         for r in qs
     ])
 
+@api_view(["GET", "PUT"])
+def request_detail(request, id):
+    try:
+        r = PartCodeModificationRequest.objects.get(id=id)
+    except PartCodeModificationRequest.DoesNotExist:
+        return Response({"error": "Request not found"}, status=404)
+
+    # -------------------------
+    # GET → View instance
+    # -------------------------
+    if request.method == "GET":
+        return Response({
+            "id": r.id,
+            "plant": r.plant,
+            "sap_part_code": r.sap_part_code,
+            "new_material_description": r.new_material_description,
+            "hsn_code": r.hsn_code,
+            "from_state_to_state": r.from_state_to_state,
+            "tax": r.tax,
+            "sales_views": r.sales_views,
+            "supplying_plant": r.supplying_plant,
+            "receiving_plant": r.receiving_plant,
+            "tax_indication_of_the_material": r.tax_indication_of_the_material,
+            "procurement_type": r.procurement_type,
+            "activate_storage_location": r.activate_storage_location,
+            "production_version_update": r.production_version_update,
+            "quality_management": r.quality_management,
+            "remarks": r.remarks,
+            "status": r.status,
+        })
+
+    # -------------------------
+    # PUT → Resubmit correction
+    # -------------------------
+    if request.method == "PUT":
+        if r.status != "RETURNED_FOR_CORRECTION":
+            return Response(
+                {"error": "Only returned requests can be edited"},
+                status=400,
+            )
+
+        data = request.data
+        now = timezone.now()
+
+        r.plant = data.get("plant", r.plant)
+        r.sap_part_code = data.get("sap_part_code", r.sap_part_code)
+        r.new_material_description = data.get(
+            "new_material_description", r.new_material_description
+        )
+        r.hsn_code = data.get("hsn_code", r.hsn_code)
+        r.from_state_to_state = data.get("from_state_to_state", r.from_state_to_state)
+        r.tax = data.get("tax", r.tax)
+        r.sales_views = data.get("sales_views", r.sales_views)
+        r.supplying_plant = data.get("supplying_plant", r.supplying_plant)
+        r.receiving_plant = data.get("receiving_plant", r.receiving_plant)
+        r.tax_indication_of_the_material = data.get(
+            "tax_indication_of_the_material",
+            r.tax_indication_of_the_material,
+        )
+        r.procurement_type = data.get("procurement_type", r.procurement_type)
+        r.activate_storage_location = data.get(
+            "activate_storage_location",
+            r.activate_storage_location,
+        )
+        r.production_version_update = data.get(
+            "production_version_update",
+            r.production_version_update,
+        )
+        r.quality_management = data.get(
+            "quality_management",
+            r.quality_management,
+        )
+        r.remarks = data.get("remarks", r.remarks)
+
+        # Reset workflow
+        r.status = "PENDING_FOR_APPROVAL"
+        r.submitted_at = now
+        r.last_modified = now
+        r.save()
+
+        return Response({"status": r.status})
 
 # ==================================================
-# APPROVE REQUESTS (Approver Queue)
+# APPROVER QUEUE
 # ==================================================
-
 @api_view(["GET"])
 def approve_requests(request):
     function_key = request.GET.get("function")
@@ -98,21 +181,15 @@ def approve_requests(request):
         status="PENDING_FOR_APPROVAL"
     )
 
-    # ---- FUNCTION FILTER (SYNC WITH DROPDOWN) ----
-    if function_key and function_key != "all":
-        if function_key == "part-code-modification":
-            # Only one workflow implemented for now
-            qs = qs
-        else:
-            # Unknown / not implemented workflows
-            qs = qs.none()
+    if function_key and function_key not in ["all", "part-code-modification"]:
+        qs = qs.none()
 
     qs = qs.order_by("-submitted_at")
 
     return Response([
         {
             "id": r.id,
-            "function": "Part Code Modification",
+            "function": "part-code-modification",
             "plant": r.plant,
             "owner": r.created_by,
             "new_material_description": r.new_material_description,
@@ -126,8 +203,9 @@ def approve_requests(request):
         for r in qs
     ])
 
+
 # ==================================================
-# APPROVE REQUEST ACTION
+# APPROVER ACTION
 # ==================================================
 @api_view(["POST"])
 def approve_request_action(request, id):
@@ -213,7 +291,7 @@ def approved_requests(request):
     return Response(data)
 
 # ==================================================
-# VALIDATION REQUESTS (Validator Queue)
+# VALIDATOR QUEUE
 # ==================================================
 @api_view(["GET"])
 def validation_requests(request):
@@ -221,13 +299,8 @@ def validation_requests(request):
 
     qs = PartCodeModificationRequest.objects.filter(status="APPROVED")
 
-    # ---- FUNCTION FILTER (SYNC WITH DROPDOWN) ----
-    if function_key and function_key != "all":
-        if function_key == "part-code-modification":
-            # only workflow implemented for now
-            qs = qs
-        else:
-            qs = qs.none()
+    if function_key and function_key not in ["all", "part-code-modification"]:
+        qs = qs.none()
 
     qs = qs.order_by("-submitted_at")
 
@@ -249,8 +322,9 @@ def validation_requests(request):
         for r in qs
     ])
 
+
 # ==================================================
-# VALIDATION REQUEST ACTION
+# VALIDATOR ACTION
 # ==================================================
 @api_view(["POST"])
 def validation_request_action(request, request_id):
@@ -304,6 +378,7 @@ def validation_request_action(request, request_id):
 
     return Response({"status": req.status})
 
+
 # ==================================================
 # VALIDATED REQUESTS (Validator History)
 # ==================================================
@@ -315,29 +390,24 @@ def validated_requests(request):
         status__in=["VALIDATED", "REJECTED"]
     )
 
-    # ---- FUNCTION FILTER (SYNC WITH DROPDOWN) ----
-    if function_key and function_key != "all":
-        if function_key == "part-code-modification":
-            qs = qs  # only workflow implemented for now
-        else:
-            qs = qs.none()
+    if function_key and function_key not in ["all", "part-code-modification"]:
+        qs = qs.none()
 
     qs = qs.order_by("-last_modified")
 
-    data = []
-    for r in qs:
-        data.append({
+    return Response([
+        {
             "id": r.id,
             "plant": r.plant,
             "owner": r.created_by,
             "new_material_description": r.new_material_description,
             "part_code": r.sap_part_code,
             "submission_date": r.submitted_at,
-            "status": r.status,  # VALIDATED / REJECTED
+            "status": r.status,
             "approver": r.approved_by,
             "modified_date": r.last_modified,
             "validation_status": r.sap_validation_status,
             "validated_by": r.sap_validated_by,
-        })
-
-    return Response(data)
+        }
+        for r in qs
+    ])

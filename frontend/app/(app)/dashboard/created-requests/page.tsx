@@ -10,7 +10,7 @@ type FunctionOption = {
   label: string;
 };
 
-type MyRequest = {
+type CreatedRequest = {
   id: number;
   function: string;
   plant: string;
@@ -42,16 +42,17 @@ const FUNCTION_OPTIONS: FunctionOption[] = [
   { key: "routing-master", label: "Routing Master Creation/Modification" },
   { key: "selling-price-updation", label: "Selling Price Updation" },
   { key: "vendor-master", label: "Vendor Master Creation/Modification" },
+  // others listed but not implemented yet
 ];
 
 /* ================= PAGE ================= */
 
-export default function MyRequestsPage() {
+export default function CreatedRequestsPage() {
   const router = useRouter();
   const tableScrollRef = useRef<HTMLDivElement | null>(null);
 
   const [selectedFunction, setSelectedFunction] = useState("all");
-  const [requests, setRequests] = useState<MyRequest[]>([]);
+  const [requests, setRequests] = useState<CreatedRequest[]>([]);
   const [loading, setLoading] = useState(false);
 
   /* ================= DATA LOAD ================= */
@@ -97,19 +98,18 @@ export default function MyRequestsPage() {
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
 
-  /* ================= ACTIONS ================= */
+  /* ================= NAVIGATION ================= */
 
-  function handleResubmit(request: MyRequest) {
-    router.push(
-      `/dashboard/part-code/modification?sourceRequestId=${request.id}`
-    );
+  function handleView(requestId: number) {
+    // Always open the VIEW / CORRECTION instance page
+    router.push(`/dashboard/part-code/modification?requestId=${requestId}`);
   }
 
   /* ================= UI ================= */
 
   return (
     <>
-      <h1>My Requests</h1>
+      <h1>Created Requests</h1>
 
       <label>Filter by Function</label>
       <br />
@@ -143,6 +143,7 @@ export default function MyRequestsPage() {
           <table>
             <thead>
               <tr>
+                <th>View</th>
                 <th>ID</th>
                 <th>Plant</th>
                 <th>Owner</th>
@@ -153,7 +154,6 @@ export default function MyRequestsPage() {
                 <th>Approver</th>
                 <th>Reason for Return</th>
                 <th>Modified Date</th>
-                <th>Action</th>
                 <th>Validation Status</th>
                 <th>Validated By</th>
               </tr>
@@ -162,6 +162,9 @@ export default function MyRequestsPage() {
             <tbody>
               {requests.map((r) => (
                 <tr key={r.id}>
+                  <td>
+                    <button onClick={() => handleView(r.id)}>View</button>
+                  </td>
                   <td>{r.id}</td>
                   <td>{r.plant}</td>
                   <td>{r.created_by}</td>
@@ -172,13 +175,6 @@ export default function MyRequestsPage() {
                   <td>{r.approver ?? "-"}</td>
                   <td>{r.reason_for_return ?? "-"}</td>
                   <td>{new Date(r.last_modified).toLocaleString()}</td>
-                  <td>
-                    {r.status === "RETURNED_FOR_CORRECTION" && (
-                      <button onClick={() => handleResubmit(r)}>
-                        Edit & Resubmit
-                      </button>
-                    )}
-                  </td>
                   <td>{r.validation_status}</td>
                   <td>{r.validated_by ?? "-"}</td>
                 </tr>
